@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNAP Benefit Deposit Counter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900 font-sans">
+
+<div class="max-w-2xl mx-auto p-4 md:p-8">
+    <header class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-blue-800 mb-2">SNAP General Schedules</h1>
+        <p class="text-slate-600">Calculate total deposit days across a state's issuance window.</p>
+    </header>
+
+    <div class="glass-morphism rounded-2xl shadow-xl p-6 md:p-8">
+        <div class="space-y-6">
+            <!-- State/Territory Selection -->
+            <div>
+                <label class="block text-sm font-semibold mb-2" for="state">Select State or Territory</label>
+                <select id="state" class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                    <option value="">-- Choose a Location --</option>
+                </select>
+                <div id="state-info" class="mt-2 text-xs text-blue-600 font-medium hidden"></div>
+            </div>
+
+            <!-- Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-2" for="startDate">Start Date</label>
+                    <input type="date" id="startDate" class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2" for="endDate">End Date</label>
+                    <input type="date" id="endDate" class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+            </div>
+
+            <button id="calculateBtn" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transform transition active:scale-95">
+                Calculate General Deposit Days
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results" class="mt-8 hidden">
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div id="resultHeader" class="bg-blue-50 p-6 border-b border-blue-100 text-center">
+                <span id="depositCount" class="text-5xl font-black text-blue-700">0</span>
+                <p class="text-blue-800 font-medium mt-2">Total general deposit days in range</p>
+                <p id="logicSummary" class="text-xs text-slate-500 mt-2 italic"></p>
+            </div>
+            <div class="p-6">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Issuance Timeline:</h3>
+                <div id="monthContainers" class="space-y-6">
+                    <!-- Months and dates injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-12 text-center text-xs text-slate-400 leading-relaxed">
+        Note: This tool shows the general window when benefits are issued to the population. Individual accounts receive funds on a specific day within these windows based on state-specific criteria.
+    </footer>
+</div>
+
+<script>
+    const stateRules = {
+        "Alabama": { range: [4, 23], info: "Issues on days 4-23" },
+        "Alaska": { range: [1, 1], info: "Issues on the 1st" },
+        "Arizona": { range: [1, 13], info: "Issues on days 1-13" },
+        "Arkansas": { range: [4, 13], info: "Issues on days 4-13" },
+        "California": { range: [1, 10], info: "Issues on days 1-10" },
+        "Colorado": { range: [1, 10], info: "Issues on days 1-10" },
+        "Connecticut": { range: [1, 3], info: "Issues on days 1-3" },
+        "Delaware": { range: [2, 23], info: "Issues on days 2-23" },
+        "Florida": { range: [1, 28], info: "Issues on days 1-28" },
+        "Georgia": { range: [5, 23], info: "Issues on days 5-23" },
+        "Guam": { range: [1, 10], info: "Issues on days 1-10" },
+        "Hawaii": { range: [3, 5], info: "Issues on days 3 & 5" },
+        "Idaho": { range: [1, 10], info: "Issues on days 1-10" },
+        "Illinois": { range: [1, 10], info: "Issues on days 1-10" },
+        "Indiana": { range: [5, 23], info: "Issues on days 5-23" },
+        "Iowa": { range: [1, 10], info: "Issues on days 1-10" },
+        "Kansas": { range: [1, 10], info: "Issues on days 1-10" },
+        "Kentucky": { range: [1, 19], info: "Issues on days 1-19" },
+        "Louisiana": { range: [1, 23], info: "Issues on days 1-23" },
+        "Maine": { range: [10, 14], info: "Issues on days 10-14" },
+        "Maryland": { range: [4, 23], info: "Issues on days 4-23" },
+        "Massachusetts": { range: [1, 14], info: "Issues on days 1-14" },
+        "Michigan": { range: [3, 21], info: "Issues on days 3-21" },
+        "Minnesota": { range: [4, 13], info: "Issues on days 4-13" },
+        "Mississippi": { range: [4, 21], info: "Issues on days 4-21" },
+        "Missouri": { range: [1, 22], info: "Issues on days 1-22" },
+        "New York": { range: [1, 9], info: "Issues on days 1-9 (Upstate)" },
+        "North Carolina": { range: [3, 21], info: "Issues on days 3-21" },
+        "Ohio": { range: [2, 20], info: "Issues on days 2-20" },
+        "Pennsylvania": { range: [3, 14], info: "Issues on days 3-14" },
+        "Puerto Rico": { range: [4, 22], info: "Issues every other day 4-22" },
+        "Texas": { range: [1, 28], info: "Issues on days 1-28" },
+        "U.S. Virgin Islands": { range: [1, 1], info: "Issues on the 1st" },
+        "Virginia": { range: [1, 7], info: "Issues on days 1-7" },
+        "Washington": { range: [1, 20], info: "Issues on days 1-20" }
+    };
+
+    const allLocations = Object.keys(stateRules).sort();
+
+    const stateSelect = document.getElementById('state');
+    const stateInfo = document.getElementById('state-info');
+
+    allLocations.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        stateSelect.appendChild(opt);
+    });
+
+    stateSelect.addEventListener('change', () => {
+        const rule = stateRules[stateSelect.value];
+        if (rule) {
+            stateInfo.textContent = rule.info;
+            stateInfo.classList.remove('hidden');
+        } else {
+            stateInfo.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('calculateBtn').addEventListener('click', () => {
+        const state = stateSelect.value;
+        const start = new Date(document.getElementById('startDate').value);
+        const end = new Date(document.getElementById('endDate').value);
+
+        if (!state || isNaN(start.getTime()) || isNaN(end.getTime())) {
+            alertBox("Please select a location and valid dates.");
+            return;
+        }
+
+        const results = findGeneralDatesInRange(start, end, state);
+        showResults(results, state);
+    });
+
+    function findGeneralDatesInRange(start, end, state) {
+        const rule = stateRules[state];
+        let found = [];
+        let iter = new Date(start.getFullYear(), start.getMonth(), 1);
+        const limit = new Date(end);
+        limit.setHours(23, 59, 59, 999);
+
+        while (iter <= limit) {
+            for (let day = rule.range[0]; day <= rule.range[1]; day++) {
+                // Puerto Rico specific logic: Only even days in the window
+                if (state === "Puerto Rico" && day % 2 !== 0) continue;
+
+                let d = new Date(iter.getFullYear(), iter.getMonth(), day);
+                // Check if the date is valid (handles shorter months)
+                if (d.getMonth() === iter.getMonth() && d >= start && d <= limit) {
+                    found.push(new Date(d));
+                }
+            }
+            iter.setMonth(iter.getMonth() + 1);
+        }
+        return found;
+    }
+
+    function showResults(dates, state) {
+        const container = document.getElementById('results');
+        const countEl = document.getElementById('depositCount');
+        const monthContainer = document.getElementById('monthContainers');
+        const logicSummary = document.getElementById('logicSummary');
+        
+        container.classList.remove('hidden');
+        countEl.textContent = dates.length;
+        monthContainer.innerHTML = '';
+        logicSummary.textContent = `Based on ${state}'s general issuance window: ${stateRules[state].info}.`;
+
+        if (dates.length === 0) {
+            monthContainer.innerHTML = '<p class="text-slate-400 italic text-center py-4">No issuance days found in this range.</p>';
+        } else {
+            // Group by Month
+            const months = {};
+            dates.forEach(d => {
+                const key = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                if (!months[key]) months[key] = [];
+                months[key].push(d);
+            });
+
+            Object.entries(months).forEach(([monthName, monthDates]) => {
+                const section = document.createElement('div');
+                section.innerHTML = `
+                    <h4 class="text-xs font-bold text-blue-900 mb-2 border-b border-blue-100 pb-1">${monthName}</h4>
+                    <div class="flex flex-wrap gap-2">
+                        ${monthDates.map(d => `
+                            <div class="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm border border-blue-100">
+                                ${d.getDate()}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                monthContainer.appendChild(section);
+            });
+        }
+        
+        container.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function alertBox(msg) {
+        const btn = document.getElementById('calculateBtn');
+        const originalText = btn.textContent;
+        btn.textContent = msg;
+        btn.classList.replace('bg-blue-700', 'bg-red-600');
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.replace('bg-red-600', 'bg-blue-700');
+        }, 3000);
+    }
+</script>
+
+</body>
+</html>
