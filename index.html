@@ -35,7 +35,7 @@
             justify-content: center;
             border-radius: 12px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             transition: all 0.2s ease;
         }
         .day-active {
@@ -47,12 +47,23 @@
             background: rgba(0,0,0,0.03);
             color: rgba(0,0,0,0.3);
         }
+        .day-empty {
+            visibility: hidden;
+        }
+        .weekday-label {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.3;
+            padding-bottom: 8px;
+        }
         select, input {
             background: rgba(255, 255, 255, 0.5) !important;
             border: 1px solid rgba(0,0,0,0.08) !important;
             backdrop-filter: blur(4px);
         }
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
@@ -61,11 +72,10 @@
 <body class="p-4 md:p-12">
 
     <div class="max-w-5xl mx-auto">
-        <!-- Header Section -->
         <header class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
                 <span class="text-xs font-bold tracking-[0.2em] uppercase opacity-50 mb-2 block">Snap Benefits</span>
-                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight">Payment Cycle Count</h1>
+                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight">Funds Deposit Dates</h1>
             </div>
             <div id="summary-pill" class="hidden animate-fade-in">
                 <div class="bg-white/50 border border-black/5 px-4 py-2 rounded-full flex items-center gap-3 shadow-sm">
@@ -75,10 +85,7 @@
             </div>
         </header>
 
-        <!-- Main Bento Layout -->
         <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-            
-            <!-- Controls (Left Rail) -->
             <div class="md:col-span-4 space-y-6">
                 <div class="bento-card p-6 md:p-8">
                     <h2 class="text-lg font-bold mb-6 flex items-center gap-2">
@@ -95,14 +102,15 @@
                         </div>
 
                         <div class="group">
-                            <label class="block text-[10px] font-bold uppercase tracking-widest opacity-40 mb-2">Date Range</label>
+                            <label class="block text-[10px] font-bold uppercase tracking-widest opacity-40 mb-2">Observation Window</label>
                             <div class="space-y-3">
                                 <input type="date" id="startInput" class="w-full p-4 rounded-xl outline-none text-sm">
                                 <input type="date" id="endInput" class="w-full p-4 rounded-xl outline-none text-sm">
                             </div>
                         </div>
 
-                        <button id="calcBtn" class="w-full bg-true-ink text-white py-4 rounded-2xl font-bold tracking-tight hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-black/10 mt-4">
+                        <!-- Button text color changed to a specific dark gray (slate-500) -->
+                        <button id="calcBtn" class="w-full bg-true-ink text-slate-500 py-4 rounded-2xl font-bold tracking-tight hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-black/10 mt-4">
                             Analyze Range
                         </button>
                     </div>
@@ -118,16 +126,14 @@
                 </div>
             </div>
 
-            <!-- Calendar/Output (Right Rail) -->
             <div class="md:col-span-8">
                 <div id="calendar-grid" class="space-y-8 min-h-[400px]">
                     <div class="flex flex-col items-center justify-center h-full pt-20 opacity-20">
                         <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        <p class="font-medium">Define parameters to visualize timeline</p>
+                        <p class="font-medium text-center">Define parameters to visualize<br>the Sun-Sat timeline</p>
                     </div>
                 </div>
             </div>
-
         </div>
 
         <footer class="mt-16 pt-8 border-t border-black/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-medium uppercase tracking-[0.1em] opacity-40">
@@ -162,12 +168,14 @@
 
     document.getElementById('calcBtn').addEventListener('click', () => {
         const state = sel.value;
-        const start = new Date(document.getElementById('startInput').value);
-        const end = new Date(document.getElementById('endInput').value);
+        const startRaw = document.getElementById('startInput').value;
+        const endRaw = document.getElementById('endInput').value;
 
-        if (!state || isNaN(start.getTime())) return;
+        if (!state || !startRaw || !endRaw) return;
 
-        // UI Feedback
+        const start = new Date(startRaw + "T00:00:00");
+        const end = new Date(endRaw + "T23:59:59");
+
         document.getElementById('summary-pill').classList.remove('hidden');
         document.getElementById('active-state-name').textContent = state;
         document.getElementById('stat-card').style.opacity = '1';
@@ -183,27 +191,37 @@
         const range = rules[state];
         let totalActive = 0;
         
-        let current = new Date(start.getFullYear(), start.getMonth(), 1);
-        const limit = new Date(end);
+        // Iterator for months
+        let currentMonthIter = new Date(start.getFullYear(), start.getMonth(), 1);
+        const lastMonthIter = new Date(end.getFullYear(), end.getMonth(), 1);
 
-        while (current <= limit) {
+        while (currentMonthIter <= lastMonthIter) {
             const monthWrapper = document.createElement('div');
             monthWrapper.className = 'bento-card p-6 md:p-8 animate-fade-in';
             
-            const monthLabel = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            const daysInMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
+            const monthLabel = currentMonthIter.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+            // Calendar Math
+            const firstDayIndex = currentMonthIter.getDay(); // 0 (Sun) to 6 (Sat)
+            const daysInMonth = new Date(currentMonthIter.getFullYear(), currentMonthIter.getMonth() + 1, 0).getDate();
             
             let daysHtml = '';
+            
+            // Add Empty Padding
+            for(let p = 0; p < firstDayIndex; p++) {
+                daysHtml += `<div class="day-chip day-empty"></div>`;
+            }
+
+            // Add Actual Days
             for (let i = 1; i <= daysInMonth; i++) {
-                const checkDate = new Date(current.getFullYear(), current.getMonth(), i);
+                const checkDate = new Date(currentMonthIter.getFullYear(), currentMonthIter.getMonth(), i);
                 let isActive = i >= range[0] && i <= range[1];
                 
-                // Specific Logic
+                // State specifics
                 if (state === "Puerto Rico" && i % 2 !== 0) isActive = false;
                 if (state === "Hawaii" && ![3, 5].includes(i)) isActive = false;
 
-                // Check range bounds
-                const isOutOfRange = checkDate < start || checkDate > limit;
+                const isOutOfRange = checkDate < start || checkDate > end;
                 if (isActive && !isOutOfRange) totalActive++;
 
                 daysHtml += `<div class="day-chip ${isActive && !isOutOfRange ? 'day-active' : 'day-inactive'}">${i}</div>`;
@@ -212,14 +230,21 @@
             monthWrapper.innerHTML = `
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="font-extrabold text-xl tracking-tight">${monthLabel}</h3>
-                    <span class="text-[10px] font-bold opacity-30 tracking-widest uppercase">Visual Grid</span>
+                    <span class="text-[10px] font-bold opacity-30 tracking-widest uppercase">Sun - Sat Grid</span>
                 </div>
-                <div class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-15 gap-2">
+                <div class="grid grid-cols-7 gap-2">
+                    <div class="weekday-label text-red-500/80">S</div>
+                    <div class="weekday-label">M</div>
+                    <div class="weekday-label">T</div>
+                    <div class="weekday-label">W</div>
+                    <div class="weekday-label">T</div>
+                    <div class="weekday-label">F</div>
+                    <div class="weekday-label">S</div>
                     ${daysHtml}
                 </div>
             `;
             grid.appendChild(monthWrapper);
-            current.setMonth(current.getMonth() + 1);
+            currentMonthIter.setMonth(currentMonthIter.getMonth() + 1);
         }
 
         document.getElementById('big-count').textContent = totalActive;
